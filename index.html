@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Loan Approval Predictor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- TailTAILWIND -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FONT -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .input-field {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      transition: all 0.3s ease;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: #818cf8;
+      box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.35);
+    }
+
+    .float-label {
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+
+    input:focus + .float-label,
+    input:not(:placeholder-shown) + .float-label {
+      transform: translateY(-1.4rem) scale(0.85);
+      color: #c7d2fe;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 flex items-center justify-center px-4">
+
+  <div class="glass w-full max-w-4xl rounded-3xl shadow-2xl p-8 md:p-12">
+
+    <h1 class="text-3xl md:text-4xl font-bold text-white text-center mb-2">
+      Loan Approval Predictor
+    </h1>
+    <p class="text-center text-slate-300 mb-10">
+      Smart credit decisions, delivered with clarity
+    </p>
+
+    <!-- FORM -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+      <!-- CIBIL -->
+      <div class="relative">
+        <input id="cibil" type="number" step="1" placeholder=" "
+          class="input-field w-full rounded-xl px-4 pt-6 pb-2 text-white" />
+        <label class="float-label absolute left-4 top-4 text-slate-300 text-sm">
+          CIBIL Score (integer)
+        </label>
+      </div>
+
+      <!-- INCOME -->
+      <div class="relative">
+        <input id="income" type="number" step="any" placeholder=" "
+          class="input-field w-full rounded-xl px-4 pt-6 pb-2 text-white" />
+        <label class="float-label absolute left-4 top-4 text-slate-300 text-sm">
+          Annual Income
+        </label>
+      </div>
+
+      <!-- LOAN AMOUNT -->
+      <div class="relative">
+        <input id="amount" type="number" step="any" placeholder=" "
+          class="input-field w-full rounded-xl px-4 pt-6 pb-2 text-white" />
+        <label class="float-label absolute left-4 top-4 text-slate-300 text-sm">
+          Loan Amount
+        </label>
+      </div>
+
+      <!-- DEPENDENTS -->
+      <div class="relative">
+        <input id="dependents" type="number" step="any" placeholder=" "
+          class="input-field w-full rounded-xl px-4 pt-6 pb-2 text-white" />
+        <label class="float-label absolute left-4 top-4 text-slate-300 text-sm">
+          No. of Dependents
+        </label>
+      </div>
+
+      <!-- TERM -->
+      <div class="relative sm:col-span-2">
+        <input id="term" type="number" step="any" placeholder=" "
+          class="input-field w-full rounded-xl px-4 pt-6 pb-2 text-white" />
+        <label class="float-label absolute left-4 top-4 text-slate-300 text-sm">
+          Loan Term (months)
+        </label>
+      </div>
+
+    </div>
+
+    <!-- BUTTON -->
+    <button id="btn" onclick="predictLoan()"
+      class="mt-10 w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 transition-all text-white font-semibold text-lg shadow-xl flex items-center justify-center gap-3">
+      <span id="btn-text">Predict Loan Approval</span>
+      <div id="spinner" class="spinner hidden"></div>
+    </button>
+
+    <!-- RESULT -->
+    <div id="result"
+      class="hidden mt-10 p-6 rounded-2xl text-center text-xl font-semibold">
+    </div>
+
+  </div>
+
+  <!-- JS -->
+<script>
+  const apiUrl = "http://127.0.0.1:8000/predict";
+
+  const get = id => document.getElementById(id);
+  const val = id => get(id).value.trim();
+
+  function showResult(text, classes) {
+    const r = get("result");
+    r.className =
+      "mt-10 p-6 rounded-2xl text-center text-xl font-semibold " + classes;
+    r.innerText = text;
+    r.classList.remove("hidden");
+  }
+
+  function isInt(v) {
+    return Number.isInteger(Number(v));
+  }
+
+  function isFiniteNumber(v) {
+    const n = Number(v);
+    return Number.isFinite(n);
+  }
+
+  async function predictLoan() {
+    const cibil = val("cibil");
+    const dependents = val("dependents");
+    const term = val("term");
+    const income = val("income");
+    const amount = val("amount");
+
+    // EMPTY CHECK
+    if (![cibil, dependents, term, income, amount].every(v => v !== "")) {
+      showResult(
+        "⚠ All fields are required",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+      return;
+    }
+
+    // INTEGER VALIDATION
+    if (!isInt(cibil) || cibil < 300 || cibil > 900) {
+      showResult(
+        "⚠ CIBIL score must be an integer between 300 and 900",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+      return;
+    }
+
+    if (!isInt(dependents) || dependents < 0 || dependents > 10) {
+      showResult(
+        "⚠ Number of dependents must be between 0 and 10",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+      return;
+    }
+
+    if (!isInt(term) || term < 1 || term > 360) {
+      showResult(
+        "⚠ Loan term must be between 1 and 360 months",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+      return;
+    }
+
+    // FLOAT VALIDATION
+    if (!isFiniteNumber(income) || income <= 0 || income > 1e9) {
+      showResult(
+        "⚠ Annual income must be a positive number under 1,000,000,000",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+      return;
+    }
+
+    if (!isFiniteNumber(amount) || amount <= 0 || amount > 1e9) {
+      showResult(
+        "⚠ Loan amount must be a positive number under 1,000,000,000",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+      return;
+    }
+
+    // PAYLOAD (types exactly match backend)
+    const payload = {
+      cibil_score: parseInt(cibil),
+      income_annum: parseFloat(income),
+      loan_amount: parseFloat(amount),
+      no_of_dependents: parseInt(dependents),
+      loan_term: parseInt(term)
+    };
+
+    // LOADING STATE
+    get("btn").disabled = true;
+    get("spinner").classList.remove("hidden");
+    get("btn-text").innerText = "Predicting...";
+    get("result").classList.add("hidden");
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (data.approved === 1) {
+        showResult(
+          "✓ Loan Approved",
+          "bg-emerald-500/20 text-emerald-300 border border-emerald-400"
+        );
+      } else {
+        showResult(
+          "✕ Loan Rejected",
+          "bg-rose-500/20 text-rose-300 border border-rose-400"
+        );
+      }
+    } catch {
+      showResult(
+        "⚠ Unable to connect to server",
+        "bg-amber-500/20 text-amber-300 border border-amber-400"
+      );
+    }
+
+    // RESET BUTTON
+    get("btn").disabled = false;
+    get("spinner").classList.add("hidden");
+    get("btn-text").innerText = "Predict Loan Approval";
+  }
+</script>
+
+</body>
+</html>
