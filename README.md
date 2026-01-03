@@ -17,9 +17,3 @@ Precision–recall analysis
 FastAPI backend
 
 Responsive frontend with input validation and loading states
-
-<<<<<<< HEAD
-End-to-end ML workflow from data to deployment
-=======
-End-to-end ML workflow from data to deployment
->>>>>>> a19dd0bb914510c257e57a8288299a9df4ab88a8
